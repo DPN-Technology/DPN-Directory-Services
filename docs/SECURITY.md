@@ -14,6 +14,10 @@ DPN DS v0.1 is an **evaluation build**, not a production-ready AD administration
 8. Audit access to the reverse proxy and server. Protect domain controller backups and secure DNS / NTP.
 9. Domain controllers should remain dedicated to authentication, not general web hosting.
 
+## Phase 4 additions
+
+OIDC-issued access tokens may be verified with operator-pinned public key, issuer/audience, signed MFA assertions, and server-enforced monitoring roles. No browser login/PKCE is provided. Every directory API request emits a sanitized security event to the application logger, but immutability, central forwarding and retention are not yet provided.
+
 ## Known remaining gaps
 
 - Static operator bearer token, not OIDC or per-user RBAC; no rotation workflow.
