@@ -22,7 +22,8 @@ def test_token_required_for_every_directory_route():
     c = client()
     for route in ("overview", "users", "groups", "devices"):
         assert c.get(f"/api/v1/{route}").status_code == 401
-        assert c.get(f"/api/v1/{route}", headers={"Authorization": "Bearer wrong"}).status_code == 401
+        wrong = c.get(f"/api/v1/{route}", headers={"Authorization": "Bearer wrong"})
+        assert wrong.status_code == 401
 
 
 def test_missing_configuration_fails_closed():
