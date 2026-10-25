@@ -21,7 +21,8 @@ This document separates delivered implementation from intended capabilities. Lab
 - [ ] Reproducible dependency lockfiles, SBOM, and production packaging
 
 ## P2 — Domain infrastructure telemetry
-- [ ] Kerberos health, DNS SRV records and time synchronization diagnostics
+- [x] Limited DNS SRV, TCP LDAP/Kerberos reachability and local NTP preflight
+- [ ] Authenticated Kerberos/LDAP checks and measured domain clock offsets
 - [ ] Domain controller replication convergence, DNS and SYSVOL state
 - [ ] Machine account lifecycle and stale host detection
 - [ ] Inventory paging, group membership, domain scope and search

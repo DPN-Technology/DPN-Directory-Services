@@ -4,12 +4,12 @@ import {
   Activity, ArrowRight, ArrowUpRight, Blocks, CheckCircle2, ChevronRight,
   CircleAlert, Database, Eye, Fingerprint, HardDrive, KeyRound,
   Layers3, LockKeyhole, LogOut, Monitor, RefreshCw, Search,
-  Server, Shield, ShieldCheck, Terminal, Users, Wifi,
+  Server, Shield, ShieldCheck, Terminal, Users, Wifi, Network,
 } from 'lucide-react'
 
 type IconType = ComponentType<SVGProps<SVGSVGElement> & { size?: string | number; strokeWidth?: number }>
-type Tab = 'overview' | 'users' | 'groups' | 'devices' | 'about'
-type DataTab = Exclude<Tab, 'overview' | 'about'>
+type Tab = 'overview' | 'users' | 'groups' | 'devices' | 'diagnostics' | 'about'
+type DataTab = 'users' | 'groups' | 'devices'
 type Item = { name: string; kind: string }
 type Overview = {
   name: string
@@ -21,16 +21,29 @@ type Overview = {
   counts: { users: number; groups: number; devices: number }
 }
 type Collection = { items: Item[]; mode: string }
+type DiagnosticCheck = {
+  code: string; title: string; target: string
+  status: 'pass' | 'fail' | 'unknown' | 'simulated'
+  detail: string
+}
+type DiagnosticsReport = {
+  mode: 'demo' | 'samba'; realm: string; controller: string
+  checked_at: string
+  summary: 'basic_checks_passed' | 'attention' | 'incomplete' | 'simulated'
+  disclaimer: string
+  checks: DiagnosticCheck[]
+}
 const MENU: { id: Tab; title: string; icon: IconType; section: string }[] = [
   { id: 'overview', title: 'Command overview', icon: Activity, section: 'OPERATIONS' },
   { id: 'users', title: 'Domain identities', icon: Users, section: 'OPERATIONS' },
   { id: 'groups', title: 'Security groups', icon: Layers3, section: 'OPERATIONS' },
   { id: 'devices', title: 'Managed devices', icon: Monitor, section: 'INFRASTRUCTURE' },
+  { id: 'diagnostics', title: 'Domain diagnostics', icon: Network, section: 'INFRASTRUCTURE' },
   { id: 'about', title: 'System architecture', icon: Blocks, section: 'INFRASTRUCTURE' },
 ]
 const SECTION_TITLES: Record<Tab, string> = {
   overview: 'Command overview', users: 'Domain identities',
-  groups: 'Security groups', devices: 'Managed devices', about: 'System architecture',
+  groups: 'Security groups', devices: 'Managed devices', diagnostics: 'Domain diagnostics', about: 'System architecture',
 }
 const resourceIcons: Record<DataTab, IconType> = { users: Users, groups: Layers3, devices: Monitor }
 const pluralLabels: Record<DataTab, string> = { users: 'user accounts', groups: 'directory groups', devices: 'computer accounts' }
@@ -93,6 +106,7 @@ export default function App() {
   const [token, setToken] = useState('')
   const [tab, setTab] = useState<Tab>('overview')
   const [overview, setOverview] = useState<Overview | null>(null)
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null)
   const [collections, setCollections] = useState<Partial<Record<DataTab, Item[]>>>({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -122,6 +136,11 @@ export default function App() {
           const data = await api<Overview>('overview', controller.signal)
           if (!controller.signal.aborted) setOverview(data)
         }
+        if (tab === 'diagnostics') {
+          setDiagnostics(null)
+          const data = await api<DiagnosticsReport>('diagnostics', controller.signal)
+          if (!controller.signal.aborted) setDiagnostics(data)
+        }
         if (tab === 'users' || tab === 'groups' || tab === 'devices') {
           const data = await api<Collection>(tab, controller.signal)
           if (!controller.signal.aborted) setCollections(current => ({ ...current, [tab]: data.items }))
@@ -137,7 +156,7 @@ export default function App() {
   }, [token, tab, refresh, api])
 
   const endSession = () => {
-    setToken(''); setOverview(null); setCollections({}); setError(''); setTab('overview'); setQuery('')
+    setToken(''); setOverview(null); setDiagnostics(null); setCollections({}); setError(''); setTab('overview'); setQuery('')
   }
   const filtered = useMemo(() => {
     if (tab !== 'users' && tab !== 'groups' && tab !== 'devices') return []
@@ -173,7 +192,7 @@ export default function App() {
         </div>
       </aside>
       <div className="main-container">
-        <header className="topbar"><div className="crumb"><span>OPERATIONS</span><ChevronRight size={14}/><strong>{SECTION_TITLES[tab]}</strong></div><div className="top-actions"><span className="session-pill"><span className="live-dot"/>API SESSION ACTIVE</span><button className="icon-button" onClick={() => setRefresh(v => v + 1)} title="Refresh live data" aria-label="Refresh live data"><RefreshCw size={18} className={loading ? 'spin' : ''}/></button><div className="operator-avatar"><Shield size={18}/></div></div></header>
+        <header className="topbar"><div className="crumb"><span>OPERATIONS</span><ChevronRight size={14}/><strong>{SECTION_TITLES[tab]}</strong></div><div className="top-actions"><span className="session-pill"><span className="live-dot"/>{overview ? "API RESPONDING" : "TOKEN PROVIDED"}</span><button className="icon-button" onClick={() => setRefresh(v => v + 1)} title="Refresh live data" aria-label="Refresh live data"><RefreshCw size={18} className={loading ? 'spin' : ''}/></button><div className="operator-avatar"><Shield size={18}/></div></div></header>
         <main className="main-content">
           <div className="page-intro"><div><Kicker>DPN / DOMAIN OPERATIONS</Kicker><h1>{SECTION_TITLES[tab]}<span className="title-period">.</span></h1><p>Centralized identity visibility and Linux domain infrastructure intelligence.</p></div><div className="context-pill"><Wifi size={15}/>{mode}</div></div>
           {overview?.mode === 'demo' && <div className="simulation-notice"><CircleAlert size={17}/><span>SIMULATION MODE — The names, counts and system state on this screen are demonstration data, not a live domain.</span></div>}
@@ -189,11 +208,34 @@ export default function App() {
             </div>
             <div className="detail-grid">
               <section className="panel"><CardHeading icon={Server} eyebrow="INFRASTRUCTURE STATUS" title="Domain controller" right={<span className={'status-badge '+(statusGood?'good':state==='degraded'?'bad':'neutral')}><span/>{healthName}</span>}/><div className="dc-display"><div className="dc-icon"><Server size={30}/></div><div className="dc-meta"><span>DIRECTORY NODE</span><strong>{overview?.controller || 'Awaiting API data'}</strong><small>{overview?.realm || 'No domain resolved'}</small></div><span className="dc-node">DC / 01</span></div><div className="kv-list"><div><span>AUTHENTICATION ENGINE</span><strong>Samba Active Directory</strong></div><div><span>DOMAIN REALM</span><strong>{overview?.realm || '—'}</strong></div><div><span>BACKEND DATA SOURCE</span><strong>{mode}</strong></div><div><span>CONSOLE VERSION</span><strong>0.1.0 / ALPHA</strong></div></div></section>
-              <section className="panel security-panel"><CardHeading icon={Eye} eyebrow="OPERATIONAL ASSURANCE" title="System capabilities"/><div className="check-list"><div><CheckCircle2 size={18}/><div><strong>Authenticated data access</strong><span>Bearer token enforced server-side</span></div></div><div><CheckCircle2 size={18}/><div><strong>Read-only command allowlist</strong><span>Directory enumeration only</span></div></div><div><CheckCircle2 size={18}/><div><strong>Explicit simulation boundary</strong><span>No fake data presented as live</span></div></div></div><div className="security-foot"><span>NOT YET AVAILABLE</span><p>OIDC / MFA, delegated RBAC, replication and DNS diagnostics, controlled mutations and audit retention remain future milestones.</p></div></section>
+              <section className="panel security-panel"><CardHeading icon={Eye} eyebrow="OPERATIONAL ASSURANCE" title="System capabilities"/><div className="check-list"><div><CheckCircle2 size={18}/><div><strong>Authenticated data access</strong><span>Bearer token enforced server-side</span></div></div><div><CheckCircle2 size={18}/><div><strong>Read-only command allowlist</strong><span>Directory enumeration only</span></div></div><div><CheckCircle2 size={18}/><div><strong>Explicit simulation boundary</strong><span>No fake data presented as live</span></div></div></div><div className="security-foot"><span>NOT YET AVAILABLE</span><p>OIDC / MFA, delegated RBAC, replication verification, controlled mutations and audit retention remain future milestones.</p></div></section>
             </div>
           </div>}
+          {tab === 'diagnostics' && <section className="panel diagnostics-panel">
+            <CardHeading icon={Network} eyebrow="READ-ONLY INFRASTRUCTURE PREFLIGHT" title="Domain connectivity diagnostics"
+              right={<span className={'status-badge ' + (diagnostics?.summary === 'basic_checks_passed' ? 'good' : diagnostics?.summary === 'attention' ? 'bad' : 'neutral')}>
+                <span/>{diagnostics?.summary === 'basic_checks_passed' ? 'BASIC PROBES PASSED' : diagnostics?.summary === 'attention' ? 'ATTENTION' : diagnostics?.summary === 'incomplete' ? 'INCOMPLETE' : diagnostics?.summary === 'simulated' ? 'SIMULATED' : 'NOT CHECKED'}</span>}
+            />
+            <div className="diagnostics-intro">
+              <div><Kicker>CONFIGURED TARGET</Kicker><h2>{diagnostics?.controller ?? overview?.controller ?? 'Awaiting response'}</h2><p>{diagnostics?.realm ?? overview?.realm ?? 'No realm resolved'}</p></div>
+              <div className="diagnostics-timestamp"><span>LAST SNAPSHOT</span><strong>{diagnostics ? new Date(diagnostics.checked_at).toLocaleString() : '—'}</strong><small>{diagnostics?.mode === 'demo' ? 'SIMULATED — NO PROBES' : 'ON DEMAND / NO BACKGROUND POLLING'}</small></div>
+            </div>
+            {diagnostics ? <div className="diagnostics-grid">
+              {diagnostics.checks.map((check, index) =>
+                <article className="diagnostic-card" key={check.code}>
+                  <div className="diagnostic-top"><span className="diagnostic-index">{String(index + 1).padStart(2, '0')} / 05</span>
+                    <span className={'diagnostic-status ' + check.status}><span className="status-indicator"/>{check.status.toUpperCase()}</span></div>
+                  <h3>{check.title}</h3>
+                  <span className="diagnostic-target">{check.target}</span>
+                  <p>{check.detail}</p>
+                </article>
+              )}
+            </div> : <div className="empty-state"><Network size={30}/><strong>{loading ? 'Running configured preflight' : 'No diagnostic snapshot available'}</strong><span>{loading ? 'Querying domain service records and configured controller.' : 'Refresh to obtain a new diagnostic snapshot.'}</span></div>}
+            <div className="diagnostic-disclaimer"><CircleAlert size={19}/><span>{diagnostics?.disclaimer ?? 'Checks are limited to discovery, reachability and local time synchronization. They do not prove successful domain authentication.'}</span></div>
+            <div className="diagnostic-footer"><div><LockKeyhole size={15}/> FIXED TARGETS · SERVER CONFIGURATION ONLY</div><button className="diagnostic-refresh" onClick={() => setRefresh(v => v + 1)} disabled={loading}><RefreshCw size={15}/> RUN CHECKS AGAIN</button></div>
+          </section>}
           {(tab === 'users' || tab === 'groups' || tab === 'devices') && <section className="panel collection-panel"><CardHeading icon={resourceIcons[tab]} eyebrow="DIRECTORY INVENTORY / READ ONLY" title={pluralLabels[tab]} right={<span className="count-pill">{filtered.length} SHOWN</span>}/><div className="collection-tools"><div className="search-control"><Search size={17}/><input placeholder={'Search ' + pluralLabels[tab] + '...'} aria-label={'Search ' + pluralLabels[tab]} value={query} onChange={e => setQuery(e.target.value)} /></div><span className="inventory-message"><Eye size={15}/> OBSERVATION ONLY</span></div><div className="record-header"><span>DIRECTORY OBJECT</span><span>OBJECT TYPE</span></div>{filtered.length ? filtered.map((item, i) => { const I=resourceIcons[tab]; return <div className="record-row" key={item.name+i}><div className="record-identity"><div className="record-icon"><I size={18}/></div><div><strong>{item.name}</strong><small>{overview?.realm}</small></div></div><div className="record-kind">{item.kind.toUpperCase()}</div></div> }) : <div className="empty-state"><Database size={30}/><strong>{loading ? 'Loading directory records' : 'No records to display'}</strong><span>{loading ? 'Reading the directory adapter…' : 'Search or refresh to check for directory objects.'}</span></div>}<div className="table-footer"><span>{filtered.length} matching records</span><span>NO EDIT ACTIONS IN THIS RELEASE</span></div></section>}
-          {tab === 'about' && <section className="panel about-panel"><CardHeading icon={Blocks} eyebrow="ENGINEERING REFERENCE" title="Directory services architecture"/><div className="architecture-flow"><div><div className="flow-icon"><Monitor size={24}/></div><strong>DPN CONSOLE</strong><span>React / TypeScript</span></div><ArrowRight/><div><div className="flow-icon"><ShieldCheck size={24}/></div><strong>CONTROL API</strong><span>FastAPI / Token gate</span></div><ArrowRight/><div><div className="flow-icon"><Terminal size={24}/></div><strong>SAMBA AD DC</strong><span>Read-only CLI adapter</span></div></div><div className="about-grid"><div><Kicker>AVAILABLE NOW</Kicker><h3>Initial foundation</h3><p>Domain overview, user inventory, group inventory, computer accounts and controller service status through a constrained API.</p></div><div><Kicker>PLANNED MILESTONES</Kicker><h3>Enterprise control plane</h3><p>Audited user changes, RBAC/MFA, Linux host policy orchestration, replication checks, DNS/Kerberos observability and secure remote agents.</p></div></div><div className="architecture-footer"><HardDrive size={18}/> DPN DS relies on Samba for directory protocols and data. It does not replace AD DC, LDAP or Kerberos engines. <ArrowUpRight size={16}/></div></section>}
+          {tab === 'about' && <section className="panel about-panel"><CardHeading icon={Blocks} eyebrow="ENGINEERING REFERENCE" title="Directory services architecture"/><div className="architecture-flow"><div><div className="flow-icon"><Monitor size={24}/></div><strong>DPN CONSOLE</strong><span>React / TypeScript</span></div><ArrowRight/><div><div className="flow-icon"><ShieldCheck size={24}/></div><strong>CONTROL API</strong><span>FastAPI / Token gate</span></div><ArrowRight/><div><div className="flow-icon"><Terminal size={24}/></div><strong>SAMBA AD DC</strong><span>Read-only CLI adapter</span></div></div><div className="about-grid"><div><Kicker>AVAILABLE NOW</Kicker><h3>Initial foundation</h3><p>Domain overview, user inventory, group inventory, computer accounts and controller service status through a constrained API.</p></div><div><Kicker>PLANNED MILESTONES</Kicker><h3>Enterprise control plane</h3><p>Audited user changes, RBAC/MFA, Linux host policy orchestration, replication checks, authenticated Kerberos/LDAP checks and secure remote agents.</p></div></div><div className="architecture-footer"><HardDrive size={18}/> DPN DS relies on Samba for directory protocols and data. It does not replace AD DC, LDAP or Kerberos engines. <ArrowUpRight size={16}/></div></section>}
           <footer className="main-footer"><span>© 2026 DPN TECHNOLOGY · DEVELOP PIONEER NAVIGATE</span><span><span className="footer-dot"/> DPN DS / ALPHA 0.1.0</span></footer>
         </main>
       </div>
