@@ -8,12 +8,14 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from dpn_ds.config import Settings
+from dpn_ds.diagnostics import DomainDiagnostics
 from dpn_ds.directory import DemoDirectory, Directory, DirectoryUnavailable, SambaDirectory
 
 
 def create_app(settings: Settings | None = None, directory: Directory | None = None) -> FastAPI:
     cfg = settings if settings is not None else Settings.from_env()
     source: Directory = directory or (DemoDirectory() if cfg.mode == "demo" else SambaDirectory())
+
     def authorize(request: Request) -> None:
         if not cfg.api_token:
             raise HTTPException(status_code=503, detail="API authentication is not configured")
@@ -66,6 +68,11 @@ def create_app(settings: Settings | None = None, directory: Directory | None = N
     @router.get("/devices")
     def devices() -> dict:
         return {"items": read_items("devices"), "mode": cfg.mode}
+
+    @router.get("/diagnostics")
+    def diagnostics() -> dict:
+        """Only server-defined diagnostic targets; no user-supplied scan parameters."""
+        return DomainDiagnostics(cfg.realm, cfg.controller, cfg.mode).snapshot()
 
     @router.get("/overview")
     def overview() -> dict:
