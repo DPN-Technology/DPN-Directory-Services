@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +18,9 @@ def create_app(settings: Settings | None = None, directory: Directory | None = N
     source: Directory = directory or (DemoDirectory() if cfg.mode == "demo" else SambaDirectory())
     bearer = HTTPBearer(auto_error=False)
 
-    def authorize(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
+    def authorize(
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    ) -> None:
         if not cfg.api_token:
             raise HTTPException(status_code=503, detail="API authentication is not configured")
         supplied = credentials.credentials if credentials else ""
