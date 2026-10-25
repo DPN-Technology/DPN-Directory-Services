@@ -15,8 +15,10 @@ This document separates delivered implementation from intended capabilities. Lab
 - [ ] Define LDAP-over-TLS / read-only service identity integration
 - [x] Publish unprivileged systemd API service template with LoadCredential support
 - [ ] Separate high-privilege local Samba operations from HTTP API process
-- [ ] OIDC SSO + MFA with per-user RBAC and session management
-- [ ] Cryptographic audit log / central log forwarding with retention
+- [x] Verify external OIDC access tokens using a pinned RS256 public key, issuer, audience, MFA assertion and read-only RBAC
+- [ ] Interactive OIDC authorization code + PKCE, session management and token revocation
+- [x] Sanitize and emit per-request JSON security audit events for journald ingestion
+- [ ] Tamper-evident centralized audit forwarding, integrity and retention
 - [ ] Threat modeling, security review, tested incident recovery procedure
 - [ ] TLS proxy, secrets management, rate limiting, signed releases
 - [ ] Reproducible dependency lockfiles, SBOM, and production packaging
