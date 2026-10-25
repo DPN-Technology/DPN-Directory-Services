@@ -9,6 +9,7 @@ description = "Read-only Samba AD domain operations API for DPN Directory Servic
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1",
+  "dnspython>=2.7,<3",
   "uvicorn[standard]>=0.30,<1",
 ]
 
