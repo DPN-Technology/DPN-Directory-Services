@@ -176,7 +176,7 @@ export default function App() {
     }
     void load()
     return () => controller.abort()
-  }, [token, tab, refresh, api, overview, session])
+  }, [token, tab, refresh, api])
 
   const endSession = () => {
     setToken(''); setOverview(null); setSession(null); setDiagnostics(null); setVerification(null); setCollections({}); setError(''); setTab('overview'); setQuery('')
