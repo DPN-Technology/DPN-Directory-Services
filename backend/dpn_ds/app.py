@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import hmac
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from dpn_ds.config import Settings
 from dpn_ds.directory import DemoDirectory, Directory, DirectoryUnavailable, SambaDirectory
@@ -16,14 +13,12 @@ from dpn_ds.directory import DemoDirectory, Directory, DirectoryUnavailable, Sam
 def create_app(settings: Settings | None = None, directory: Directory | None = None) -> FastAPI:
     cfg = settings if settings is not None else Settings.from_env()
     source: Directory = directory or (DemoDirectory() if cfg.mode == "demo" else SambaDirectory())
-    bearer = HTTPBearer(auto_error=False)
-
-    def authorize(
-        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-    ) -> None:
+    def authorize(request: Request) -> None:
         if not cfg.api_token:
             raise HTTPException(status_code=503, detail="API authentication is not configured")
-        supplied = credentials.credentials if credentials else ""
+        header = request.headers.get("Authorization", "")
+        scheme, separator, value = header.partition(" ")
+        supplied = value if separator and scheme.lower() == "bearer" else ""
         if not hmac.compare_digest(supplied.encode(), cfg.api_token.encode()):
             raise HTTPException(
                 status_code=401,
