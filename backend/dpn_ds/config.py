@@ -1,7 +1,7 @@
 """Environment-only service configuration; no secrets baked into source control."""
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -15,7 +15,9 @@ class Settings:
     def __post_init__(self) -> None:
         if self.mode not in ("demo", "samba"):
             raise ValueError("DPN_DS_MODE must be 'demo' or 'samba'")
-        if self.cors_origins and any(not x.startswith(("http://", "https://")) for x in self.cors_origins):
+        if self.cors_origins and any(
+            not origin.startswith(("http://", "https://")) for origin in self.cors_origins
+        ):
             raise ValueError("DPN_DS_CORS_ORIGINS must contain complete origins")
 
     @classmethod
