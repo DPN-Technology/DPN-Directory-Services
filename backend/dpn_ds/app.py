@@ -11,10 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from dpn_ds.advanced_health import AdvancedHealth
 from dpn_ds.audit import LOGGER, emit_audit_event
-from dpn_ds.identity import OperatorAuthenticator
 from dpn_ds.config import Settings
 from dpn_ds.diagnostics import DomainDiagnostics
 from dpn_ds.directory import DemoDirectory, Directory, DirectoryUnavailable, SambaDirectory
+from dpn_ds.identity import OperatorAuthenticator
 
 
 def create_app(
