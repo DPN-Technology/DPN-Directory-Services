@@ -31,6 +31,8 @@ DPN DS is a new DPN Technology management console built around the existing, pro
 | Controller signal | Local samba-ad-dc systemd service status (not a replication or Kerberos check) |
 | Domain readiness | Bounded DNS SRV, LDAP/Kerberos TCP, and local time-sync preflight (not authentication) |
 | Authenticated preflight | Opt-in certificate-validated LDAPS bind, isolated Kerberos TGT test and inbound DRS metadata inspection |
+| Operator identity | Pinned-key OIDC token verification, MFA assertion and read-only RBAC (interactive login pending) |
+| Audit | JSON security events without raw tokens, usernames or query strings |
 | API security | Bearer-token gate for every /api/v1 route; no mutation endpoints |
 | Backend adapters | Explicit Demo mode, or real Samba CLI list commands |
 | Console | Responsive React/TypeScript interface, DPN black/red visual system |
@@ -116,7 +118,7 @@ docs/
 
 **Phase 05 — DPN platform integration:** DPN OS, Operational Control, WatchTower and central identity integration, backed by stable APIs.
 
-[Authenticated checks](docs/AUTHENTICATED_HEALTH.md) · [Diagnostics guide](docs/DIAGNOSTICS.md) · [Read the full roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Developer guide](docs/DEVELOPMENT.md)
+[Operator identity and audit](docs/IDENTITY_RBAC_AUDIT.md) · [Authenticated checks](docs/AUTHENTICATED_HEALTH.md) · [Diagnostics guide](docs/DIAGNOSTICS.md) · [Read the full roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Developer guide](docs/DEVELOPMENT.md)
 
 ## SECURITY AND OWNERSHIP
 
