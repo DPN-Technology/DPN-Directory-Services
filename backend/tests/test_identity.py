@@ -132,3 +132,50 @@ def test_unauthorized_attempt_is_audited(keys, caplog):
     assert "NEVERLOG" not in record
     assert "wrong" not in record
     assert '"status":401' in record
+
+
+
+def test_wrong_signing_key_is_rejected(keys):
+    """A correctly formed access token signed by an untrusted key must never authorize."""
+    attacker_private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    attacker_pem = attacker_private.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    timestamp = int(time.time())
+    forged = jwt.encode(
+        {
+            "iss": "https://identity.example.test/realms/dpn",
+            "aud": "dpn-directory-services",
+            "sub": "operator-123",
+            "iat": timestamp,
+            "exp": timestamp + 240,
+            "amr": ["mfa"],
+            "dpn_roles": ["security"],
+            "token_use": "access",
+        },
+        attacker_pem, algorithm="RS256",
+    )
+    client = TestClient(create_app(
+        configuration(), directory=DemoDirectory(), public_key=keys[1]
+    ))
+    response = client.get("/api/v1/advanced-health", headers={
+        "Authorization": "Bearer " + forged,
+    })
+    assert response.status_code == 401
+
+
+def test_production_cannot_enable_shared_legacy_token():
+    with pytest.raises(ValueError, match="Production requires oidc"):
+        Settings(api_token="anything", auth_mode="legacy", runtime_env="production")
+
+
+def test_oidc_cannot_start_without_required_issuer_and_pinned_key():
+    with pytest.raises(ValueError, match="issuer"):
+        Settings(api_token="", auth_mode="oidc", oidc_audience="dpn-directory-services")
+    with pytest.raises(ValueError, match="public key"):
+        Settings(
+            api_token="", auth_mode="oidc",
+            oidc_issuer="https://identity.example.test/realms/dpn",
+            oidc_audience="dpn-directory-services",
+        )
