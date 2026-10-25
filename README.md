@@ -30,6 +30,7 @@ DPN DS is a new DPN Technology management console built around the existing, pro
 | Computer objects | Read-only managed computer listing |
 | Controller signal | Local samba-ad-dc systemd service status (not a replication or Kerberos check) |
 | Domain readiness | Bounded DNS SRV, LDAP/Kerberos TCP, and local time-sync preflight (not authentication) |
+| Authenticated preflight | Opt-in certificate-validated LDAPS bind, isolated Kerberos TGT test and inbound DRS metadata inspection |
 | API security | Bearer-token gate for every /api/v1 route; no mutation endpoints |
 | Backend adapters | Explicit Demo mode, or real Samba CLI list commands |
 | Console | Responsive React/TypeScript interface, DPN black/red visual system |
@@ -107,7 +108,7 @@ docs/
 
 **Phase 01 — Foundation (this PR):** initial read-only dashboard and backend, demo adapter, Samba adapter, CI/security scans.
 
-**Phase 02 — Domain readiness:** connection diagnostics, DNS/Kerberos tests, replication monitoring, inventory search/pagination, service-account separation.
+**Phase 02 — Domain readiness:** basic connection diagnostics and opt-in authenticated LDAPS/Kerberos/DRS checks implemented; full replication monitoring, account separation, inventory search/pagination remain upcoming.
 
 **Phase 03 — Secure administration:** OIDC/MFA, scoped RBAC, reviewed and auditable user/group change workflows, approval controls and immutable audit events.
 
@@ -115,7 +116,7 @@ docs/
 
 **Phase 05 — DPN platform integration:** DPN OS, Operational Control, WatchTower and central identity integration, backed by stable APIs.
 
-[Diagnostics guide](docs/DIAGNOSTICS.md) · [Read the full roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Developer guide](docs/DEVELOPMENT.md)
+[Authenticated checks](docs/AUTHENTICATED_HEALTH.md) · [Diagnostics guide](docs/DIAGNOSTICS.md) · [Read the full roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Developer guide](docs/DEVELOPMENT.md)
 
 ## SECURITY AND OWNERSHIP
 

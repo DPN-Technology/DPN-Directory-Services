@@ -36,7 +36,7 @@
 .diagnostic-status.pass{color:#81dbaf;border-color:#28533f;background:#0c211b}
 .diagnostic-status.fail{color:#ff8793;border-color:#67323e;background:#331820}
 .diagnostic-status.unknown{color:#f1bd76;border-color:#705333;background:#2f251b}
-.diagnostic-status.simulated{color:#b3b8c6;border-color:#454d5a;background:#22252e}
+.diagnostic-status.simulated,.diagnostic-status.not_configured{color:#b3b8c6;border-color:#454d5a;background:#22252e}
 .diagnostic-card h3{font:800 21px 'Barlow Condensed',Arial,sans-serif;text-transform:uppercase;margin:20px 0 8px;line-height:1.1}
 .diagnostic-target{display:block;overflow-wrap:anywhere;color:#ed6678;font:600 11px/1.65 'JetBrains Mono',monospace}
 .diagnostic-card p{font-size:11px;line-height:1.7;color:#959aa7;margin:12px 0 0}

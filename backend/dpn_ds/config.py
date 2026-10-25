@@ -3,6 +3,8 @@
 import os
 from dataclasses import dataclass
 
+from dpn_ds.secure_files import read_secret_file
+
 
 def _valid_hostname(value: str) -> bool:
     """Reject empty/unsafe domain host values, URLs, and shell metacharacters."""
@@ -24,6 +26,12 @@ class Settings:
     realm: str = "corp.example.com"
     controller: str = "localhost"
     cors_origins: tuple[str, ...] = ()
+    ldap_bind_user: str = ""
+    ldap_password_file: str = ""
+    ldap_ca_file: str = ""
+    krb_principal: str = ""
+    krb_keytab_file: str = ""
+    enable_drs: bool = False
 
     def __post_init__(self) -> None:
         if self.mode not in ("demo", "samba"):
@@ -45,9 +53,19 @@ class Settings:
             if origin.strip()
         )
         return cls(
-            api_token=os.getenv("DPN_DS_API_TOKEN", ""),
+            api_token=(
+                read_secret_file(os.environ["DPN_DS_API_TOKEN_FILE"])
+                if os.getenv("DPN_DS_API_TOKEN_FILE")
+                else os.getenv("DPN_DS_API_TOKEN", "")
+            ),
             mode=os.getenv("DPN_DS_MODE", "samba").lower(),
             realm=os.getenv("DPN_DS_REALM", "corp.example.com"),
             controller=os.getenv("DPN_DS_CONTROLLER", "localhost"),
             cors_origins=origins,
+            ldap_bind_user=os.getenv("DPN_DS_LDAP_BIND_USER", ""),
+            ldap_password_file=os.getenv("DPN_DS_LDAP_PASSWORD_FILE", ""),
+            ldap_ca_file=os.getenv("DPN_DS_LDAP_CA_FILE", ""),
+            krb_principal=os.getenv("DPN_DS_KRB_PRINCIPAL", ""),
+            krb_keytab_file=os.getenv("DPN_DS_KRB_KEYTAB_FILE", ""),
+            enable_drs=os.getenv("DPN_DS_ENABLE_DRS", "").lower() in ("1", "true", "yes"),
         )

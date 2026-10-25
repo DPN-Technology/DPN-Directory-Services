@@ -7,6 +7,7 @@ import hmac
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from dpn_ds.advanced_health import AdvancedHealth
 from dpn_ds.config import Settings
 from dpn_ds.diagnostics import DomainDiagnostics
 from dpn_ds.directory import DemoDirectory, Directory, DirectoryUnavailable, SambaDirectory
@@ -73,6 +74,11 @@ def create_app(settings: Settings | None = None, directory: Directory | None = N
     def diagnostics() -> dict:
         """Only server-defined diagnostic targets; no user-supplied scan parameters."""
         return DomainDiagnostics(cfg.realm, cfg.controller, cfg.mode).snapshot()
+
+    @router.get("/advanced-health")
+    def advanced_health() -> dict:
+        """Opt-in account authentication and local replication diagnostics."""
+        return AdvancedHealth(cfg).snapshot()
 
     @router.get("/overview")
     def overview() -> dict:
