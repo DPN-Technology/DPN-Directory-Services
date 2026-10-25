@@ -13,6 +13,7 @@ This document separates delivered implementation from intended capabilities. Lab
 
 ## P1 — Production architecture readiness
 - [ ] Define LDAP-over-TLS / read-only service identity integration
+- [x] Publish unprivileged systemd API service template with LoadCredential support
 - [ ] Separate high-privilege local Samba operations from HTTP API process
 - [ ] OIDC SSO + MFA with per-user RBAC and session management
 - [ ] Cryptographic audit log / central log forwarding with retention
@@ -22,7 +23,9 @@ This document separates delivered implementation from intended capabilities. Lab
 
 ## P2 — Domain infrastructure telemetry
 - [x] Limited DNS SRV, TCP LDAP/Kerberos reachability and local NTP preflight
-- [ ] Authenticated Kerberos/LDAP checks and measured domain clock offsets
+- [x] Opt-in credential-validated LDAPS bind and Kerberos keytab TGT checks
+- [x] Local Samba DRS JSON inbound last-attempt summaries (not full replication monitoring)
+- [ ] Measured domain clock offsets, service-ticket checks and live integration validation
 - [ ] Domain controller replication convergence, DNS and SYSVOL state
 - [ ] Machine account lifecycle and stale host detection
 - [ ] Inventory paging, group membership, domain scope and search
