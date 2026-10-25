@@ -1,0 +1,202 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ComponentType, SVGProps } from 'react'
+import {
+  Activity, ArrowRight, ArrowUpRight, Blocks, CheckCircle2, ChevronRight,
+  CircleAlert, Database, Eye, Fingerprint, HardDrive, KeyRound,
+  Layers3, LockKeyhole, LogOut, Monitor, RefreshCw, Search,
+  Server, Shield, ShieldCheck, Terminal, Users, Wifi,
+} from 'lucide-react'
+
+type IconType = ComponentType<SVGProps<SVGSVGElement> & { size?: string | number; strokeWidth?: number }>
+type Tab = 'overview' | 'users' | 'groups' | 'devices' | 'about'
+type DataTab = Exclude<Tab, 'overview' | 'about'>
+type Item = { name: string; kind: string }
+type Overview = {
+  name: string
+  version: string
+  realm: string
+  controller: string
+  mode: 'demo' | 'samba'
+  controller_status: 'online' | 'degraded' | 'unknown' | 'simulated'
+  counts: { users: number; groups: number; devices: number }
+}
+type Collection = { items: Item[]; mode: string }
+const MENU: { id: Tab; title: string; icon: IconType; section: string }[] = [
+  { id: 'overview', title: 'Command overview', icon: Activity, section: 'OPERATIONS' },
+  { id: 'users', title: 'Domain identities', icon: Users, section: 'OPERATIONS' },
+  { id: 'groups', title: 'Security groups', icon: Layers3, section: 'OPERATIONS' },
+  { id: 'devices', title: 'Managed devices', icon: Monitor, section: 'INFRASTRUCTURE' },
+  { id: 'about', title: 'System architecture', icon: Blocks, section: 'INFRASTRUCTURE' },
+]
+const SECTION_TITLES: Record<Tab, string> = {
+  overview: 'Command overview', users: 'Domain identities',
+  groups: 'Security groups', devices: 'Managed devices', about: 'System architecture',
+}
+const resourceIcons: Record<DataTab, IconType> = { users: Users, groups: Layers3, devices: Monitor }
+const pluralLabels: Record<DataTab, string> = { users: 'user accounts', groups: 'directory groups', devices: 'computer accounts' }
+
+function Brand({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className="brand">
+      <div className="brand-symbol"><Shield size={24} strokeWidth={1.8}/><span className="brand-bolt">ϟ</span></div>
+      <div className="brand-words"><strong>DPN<span>DS</span></strong>{!compact && <small>DIRECTORY SERVICES</small>}</div>
+    </div>
+  )
+}
+
+function Kicker({ children }: { children: React.ReactNode }) {
+  return <span className="kicker"><span className="red-dash" />{children}</span>
+}
+
+function CardHeading({ icon: Icon, eyebrow, title, right }: {
+  icon: IconType; eyebrow: string; title: string; right?: React.ReactNode
+}) {
+  return <div className="card-heading"><div className="card-heading-title"><div className="icon-frame"><Icon size={18}/></div><div><span className="eyebrow">{eyebrow}</span><h3>{title}</h3></div></div>{right}</div>
+}
+
+function Login({ onLogin }: { onLogin: (token: string) => void }) {
+  const [entry, setEntry] = useState('')
+  return (
+    <div className="login-root">
+      <div className="login-grid"></div><div className="login-glow"></div>
+      <header className="login-top"><Brand /><span className="version-tag">PLATFORM / 0.1.0</span></header>
+      <main className="login-layout">
+        <section className="login-hero">
+          <Kicker>LINUX IDENTITY INFRASTRUCTURE</Kicker>
+          <h1>CONTROL THE<br/><em>DIRECTORY.</em></h1>
+          <p>Central visibility for Samba Active Directory. One secure operational surface for identities, security groups, enrolled systems, and domain health.</p>
+          <div className="hero-proof">
+            <div><span><Fingerprint size={19}/></span><strong>IDENTITY</strong><small>Directory intelligence</small></div>
+            <div><span><ShieldCheck size={19}/></span><strong>SECURITY</strong><small>Authenticated access</small></div>
+            <div><span><Server size={19}/></span><strong>INFRASTRUCTURE</strong><small>Linux-first platform</small></div>
+          </div>
+        </section>
+        <section className="access-box">
+          <div className="access-top"><div className="access-top-icon"><LockKeyhole size={26}/></div><span className="version-tag">CONTROL PLANE ACCESS</span></div>
+          <Kicker>OPERATOR AUTHENTICATION</Kicker>
+          <h2>Access command center</h2>
+          <p>Enter the API operator token configured on your backend. Tokens remain only in this browser tab's memory.</p>
+          <form onSubmit={e => { e.preventDefault(); if (entry.trim()) onLogin(entry.trim()) }}>
+            <label htmlFor="operator-token">API OPERATOR TOKEN</label>
+            <div className="token-input"><KeyRound size={18}/><input id="operator-token" type="password" autoComplete="off" spellCheck="false" placeholder="Paste your operator token" value={entry} onChange={e => setEntry(e.target.value)} /></div>
+            <button className="primary-button" type="submit" disabled={!entry.trim()}>CONNECT TO DIRECTORY <ArrowRight size={18}/></button>
+          </form>
+          <div className="access-notice"><ShieldCheck size={17}/><span>Read-only evaluation console. No account or policy changes are permitted in v0.1.</span></div>
+        </section>
+      </main>
+      <footer className="login-footer"><span>DPN TECHNOLOGY / DEVELOP · PIONEER · NAVIGATE</span><span>BUILT FOR CONTROL. ENGINEERED FOR TRUST.</span></footer>
+    </div>
+  )
+}
+
+export default function App() {
+  const [token, setToken] = useState('')
+  const [tab, setTab] = useState<Tab>('overview')
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [collections, setCollections] = useState<Partial<Record<DataTab, Item[]>>>({})
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [refresh, setRefresh] = useState(0)
+  const [query, setQuery] = useState('')
+
+  const api = useCallback(async <T,>(resource: string, abort: AbortSignal): Promise<T> => {
+    const response = await fetch('/api/v1/' + resource, {
+      signal: abort, headers: { Authorization: 'Bearer ' + token },
+    })
+    if (!response.ok) {
+      if (response.status === 401) throw new Error('Authentication rejected. Verify your operator token.')
+      if (response.status === 503) throw new Error('Directory service unavailable or not configured. Check the API host, token and Samba adapter.')
+      throw new Error('API request failed (' + response.status + ').')
+    }
+    return response.json() as Promise<T>
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+    const controller = new AbortController()
+    setLoading(true)
+    setError('')
+    const load = async () => {
+      try {
+        if (tab === 'overview' || !overview) {
+          const data = await api<Overview>('overview', controller.signal)
+          if (!controller.signal.aborted) setOverview(data)
+        }
+        if (tab === 'users' || tab === 'groups' || tab === 'devices') {
+          const data = await api<Collection>(tab, controller.signal)
+          if (!controller.signal.aborted) setCollections(current => ({ ...current, [tab]: data.items }))
+        }
+      } catch (reason) {
+        if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Unable to contact API')
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
+      }
+    }
+    void load()
+    return () => controller.abort()
+  }, [token, tab, refresh, api])
+
+  const endSession = () => {
+    setToken(''); setOverview(null); setCollections({}); setError(''); setTab('overview'); setQuery('')
+  }
+  const filtered = useMemo(() => {
+    if (tab !== 'users' && tab !== 'groups' && tab !== 'devices') return []
+    return (collections[tab] ?? []).filter(item => item.name.toLowerCase().includes(query.toLowerCase()))
+  }, [collections, query, tab])
+
+  if (!token) return <Login onLogin={setToken}/>
+
+  const mode = overview?.mode === 'demo' ? 'SIMULATION' : 'SAMBA DIRECTORY'
+  const state = overview?.controller_status ?? 'unknown'
+  const healthName = state === 'online' ? 'ONLINE' : state === 'simulated' ? 'SIMULATED' : state === 'degraded' ? 'DEGRADED' : 'UNKNOWN'
+  const statusGood = state === 'online'
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="side-brand"><Brand /><div className="side-build">DPN CONTROL SYSTEMS <span>v0.1.0</span></div></div>
+        <div className="tenant"><div className="tenant-icon"><Database size={19}/></div><div><span className="tenant-overline">CURRENT DIRECTORY</span><strong>{overview?.realm || 'Not connected'}</strong></div><ChevronRight size={16}/></div>
+        <nav aria-label="Primary navigation">
+          {MENU.map((entry, index) => {
+            const Icon = entry.icon
+            return <div key={entry.id}>{index === 0 || MENU[index - 1].section !== entry.section ? <p className="nav-section">{entry.section}</p> : null}
+              <button className={'nav-item ' + (tab === entry.id ? 'selected' : '')} aria-current={tab === entry.id ? 'page' : undefined} onClick={() => { setTab(entry.id); setQuery('') }}>
+                <Icon size={18} strokeWidth={1.8}/><span>{entry.title}</span>{tab === entry.id && <span className="active-rail"/>}
+              </button>
+            </div>
+          })}
+        </nav>
+        <div className="sidebar-lower">
+          <div className="sec-note"><div className="sec-note-head"><ShieldCheck size={18}/><span>SECURITY MODEL</span></div><strong>READ-ONLY ACCESS</strong><p>Mutations disabled. Authentication required on all directory endpoints.</p></div>
+          <button className="disconnect" onClick={endSession}><LogOut size={17}/> Disconnect session</button>
+          <div className="side-bottom">DPN TECHNOLOGY <span>© 2026</span></div>
+        </div>
+      </aside>
+      <div className="main-container">
+        <header className="topbar"><div className="crumb"><span>OPERATIONS</span><ChevronRight size={14}/><strong>{SECTION_TITLES[tab]}</strong></div><div className="top-actions"><span className="session-pill"><span className="live-dot"/>API SESSION ACTIVE</span><button className="icon-button" onClick={() => setRefresh(v => v + 1)} title="Refresh live data" aria-label="Refresh live data"><RefreshCw size={18} className={loading ? 'spin' : ''}/></button><div className="operator-avatar"><Shield size={18}/></div></div></header>
+        <main className="main-content">
+          <div className="page-intro"><div><Kicker>DPN / DOMAIN OPERATIONS</Kicker><h1>{SECTION_TITLES[tab]}<span className="title-period">.</span></h1><p>Centralized identity visibility and Linux domain infrastructure intelligence.</p></div><div className="context-pill"><Wifi size={15}/>{mode}</div></div>
+          {overview?.mode === 'demo' && <div className="simulation-notice"><CircleAlert size={17}/><span>SIMULATION MODE — The names, counts and system state on this screen are demonstration data, not a live domain.</span></div>}
+          {error && <div className="error-notice" role="alert"><CircleAlert size={18}/><span>{error}</span><button onClick={() => setRefresh(v => v + 1)}>RETRY <ArrowRight size={14}/></button></div>}
+          {tab === 'overview' && <div className="overview-page">
+            <section className="hero-panel"><div className="hero-text"><Kicker>UNIFIED DIRECTORY CONTROL PLANE</Kicker><h2>Every identity.<br/>Every device.<br/><em>One command center.</em></h2><p>Samba-backed visibility into your domain. Secure by design, with no write operations exposed in this release.</p><span className="hero-readonly"><LockKeyhole size={15}/> ENFORCED READ-ONLY OPERATIONS</span></div><div className="hero-graphic" aria-hidden="true"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="orbit orbit-three"/><div className="orbit-center"><Shield size={64} strokeWidth={1.1}/><span>ϟ</span></div><div className="orbit-point one"/><div className="orbit-point two"/><div className="orbit-point three"/></div></section>
+            <div className="stat-grid">
+              {([
+                {key:'users',name:'TOTAL IDENTITIES',icon:Users,caption:'Directory user accounts'},
+                {key:'groups',name:'SECURITY GROUPS',icon:Layers3,caption:'Domain-managed groups'},
+                {key:'devices',name:'DOMAIN DEVICES',icon:Monitor,caption:'Computer accounts'},
+              ] as const).map(s => { const I=s.icon; return <div className="stat-card" key={s.key}><div className="stat-head"><span>{s.name}</span><I size={18}/></div><strong>{loading && !overview ? '—' : (overview?.counts[s.key] ?? '—')}</strong><div className="stat-foot"><span className="stat-dash"/> {s.caption}</div></div> })}
+            </div>
+            <div className="detail-grid">
+              <section className="panel"><CardHeading icon={Server} eyebrow="INFRASTRUCTURE STATUS" title="Domain controller" right={<span className={'status-badge '+(statusGood?'good':state==='degraded'?'bad':'neutral')}><span/>{healthName}</span>}/><div className="dc-display"><div className="dc-icon"><Server size={30}/></div><div className="dc-meta"><span>DIRECTORY NODE</span><strong>{overview?.controller || 'Awaiting API data'}</strong><small>{overview?.realm || 'No domain resolved'}</small></div><span className="dc-node">DC / 01</span></div><div className="kv-list"><div><span>AUTHENTICATION ENGINE</span><strong>Samba Active Directory</strong></div><div><span>DOMAIN REALM</span><strong>{overview?.realm || '—'}</strong></div><div><span>BACKEND DATA SOURCE</span><strong>{mode}</strong></div><div><span>CONSOLE VERSION</span><strong>0.1.0 / ALPHA</strong></div></div></section>
+              <section className="panel security-panel"><CardHeading icon={Eye} eyebrow="OPERATIONAL ASSURANCE" title="System capabilities"/><div className="check-list"><div><CheckCircle2 size={18}/><div><strong>Authenticated data access</strong><span>Bearer token enforced server-side</span></div></div><div><CheckCircle2 size={18}/><div><strong>Read-only command allowlist</strong><span>Directory enumeration only</span></div></div><div><CheckCircle2 size={18}/><div><strong>Explicit simulation boundary</strong><span>No fake data presented as live</span></div></div></div><div className="security-foot"><span>NOT YET AVAILABLE</span><p>OIDC / MFA, delegated RBAC, replication and DNS diagnostics, controlled mutations and audit retention remain future milestones.</p></div></section>
+            </div>
+          </div>}
+          {(tab === 'users' || tab === 'groups' || tab === 'devices') && <section className="panel collection-panel"><CardHeading icon={resourceIcons[tab]} eyebrow="DIRECTORY INVENTORY / READ ONLY" title={pluralLabels[tab]} right={<span className="count-pill">{filtered.length} SHOWN</span>}/><div className="collection-tools"><div className="search-control"><Search size={17}/><input placeholder={'Search ' + pluralLabels[tab] + '...'} aria-label={'Search ' + pluralLabels[tab]} value={query} onChange={e => setQuery(e.target.value)} /></div><span className="inventory-message"><Eye size={15}/> OBSERVATION ONLY</span></div><div className="record-header"><span>DIRECTORY OBJECT</span><span>OBJECT TYPE</span></div>{filtered.length ? filtered.map((item, i) => { const I=resourceIcons[tab]; return <div className="record-row" key={item.name+i}><div className="record-identity"><div className="record-icon"><I size={18}/></div><div><strong>{item.name}</strong><small>{overview?.realm}</small></div></div><div className="record-kind">{item.kind.toUpperCase()}</div></div> }) : <div className="empty-state"><Database size={30}/><strong>{loading ? 'Loading directory records' : 'No records to display'}</strong><span>{loading ? 'Reading the directory adapter…' : 'Search or refresh to check for directory objects.'}</span></div>}<div className="table-footer"><span>{filtered.length} matching records</span><span>NO EDIT ACTIONS IN THIS RELEASE</span></div></section>}
+          {tab === 'about' && <section className="panel about-panel"><CardHeading icon={Blocks} eyebrow="ENGINEERING REFERENCE" title="Directory services architecture"/><div className="architecture-flow"><div><div className="flow-icon"><Monitor size={24}/></div><strong>DPN CONSOLE</strong><span>React / TypeScript</span></div><ArrowRight/><div><div className="flow-icon"><ShieldCheck size={24}/></div><strong>CONTROL API</strong><span>FastAPI / Token gate</span></div><ArrowRight/><div><div className="flow-icon"><Terminal size={24}/></div><strong>SAMBA AD DC</strong><span>Read-only CLI adapter</span></div></div><div className="about-grid"><div><Kicker>AVAILABLE NOW</Kicker><h3>Initial foundation</h3><p>Domain overview, user inventory, group inventory, computer accounts and controller service status through a constrained API.</p></div><div><Kicker>PLANNED MILESTONES</Kicker><h3>Enterprise control plane</h3><p>Audited user changes, RBAC/MFA, Linux host policy orchestration, replication checks, DNS/Kerberos observability and secure remote agents.</p></div></div><div className="architecture-footer"><HardDrive size={18}/> DPN DS relies on Samba for directory protocols and data. It does not replace AD DC, LDAP or Kerberos engines. <ArrowUpRight size={16}/></div></section>}
+          <footer className="main-footer"><span>© 2026 DPN TECHNOLOGY · DEVELOP PIONEER NAVIGATE</span><span><span className="footer-dot"/> DPN DS / ALPHA 0.1.0</span></footer>
+        </main>
+      </div>
+    </div>
+  )
+}
