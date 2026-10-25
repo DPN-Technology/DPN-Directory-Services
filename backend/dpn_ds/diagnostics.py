@@ -9,7 +9,7 @@ from __future__ import annotations
 import shutil
 import socket
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import dns.exception
 import dns.resolver
@@ -118,7 +118,7 @@ class DomainDiagnostics:
             "mode": self.mode,
             "realm": self.realm,
             "controller": self.controller,
-            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "checked_at": datetime.now(UTC).isoformat(),
             "summary": summary,
             "checks": checks,
             "disclaimer": (
