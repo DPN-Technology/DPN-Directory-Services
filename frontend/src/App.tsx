@@ -21,6 +21,7 @@ type Overview = {
   counts: { users: number; groups: number; devices: number }
 }
 type Collection = { items: Item[]; mode: string }
+type OperatorSession = { role: "viewer" | "operator" | "security"; auth_mode: "legacy" | "oidc" }
 type DiagnosticCheck = {
   code: string; title: string; target: string
   status: 'pass' | 'fail' | 'unknown' | 'simulated'
@@ -98,7 +99,7 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
           <div className="access-top"><div className="access-top-icon"><LockKeyhole size={26}/></div><span className="version-tag">CONTROL PLANE ACCESS</span></div>
           <Kicker>OPERATOR AUTHENTICATION</Kicker>
           <h2>Access command center</h2>
-          <p>Enter the API operator token configured on your backend. Tokens remain only in this browser tab's memory.</p>
+          <p>Enter a lab operator token or a short-lived, MFA-backed OIDC API access token issued by your identity provider. Browser-based OIDC login is not implemented in this release. Tokens stay only in tab memory.</p>
           <form onSubmit={e => { e.preventDefault(); if (entry.trim()) onLogin(entry.trim()) }}>
             <label htmlFor="operator-token">API OPERATOR TOKEN</label>
             <div className="token-input"><KeyRound size={18}/><input id="operator-token" type="password" autoComplete="off" spellCheck="false" placeholder="Paste your operator token" value={entry} onChange={e => setEntry(e.target.value)} /></div>
@@ -116,6 +117,7 @@ export default function App() {
   const [token, setToken] = useState('')
   const [tab, setTab] = useState<Tab>('overview')
   const [overview, setOverview] = useState<Overview | null>(null)
+  const [session, setSession] = useState<OperatorSession | null>(null)
   const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null)
   const [verification, setVerification] = useState<AdvancedReport | null>(null)
   const [collections, setCollections] = useState<Partial<Record<DataTab, Item[]>>>({})
@@ -130,6 +132,7 @@ export default function App() {
     })
     if (!response.ok) {
       if (response.status === 401) throw new Error('Authentication rejected. Verify your operator token.')
+      if (response.status === 403) throw new Error('Access denied. This operation requires a higher domain monitoring role or MFA claim.')
       if (response.status === 503) throw new Error('Directory service unavailable or not configured. Check the API host, token and Samba adapter.')
       throw new Error('API request failed (' + response.status + ').')
     }
@@ -143,6 +146,10 @@ export default function App() {
     setError('')
     const load = async () => {
       try {
+        if (!session) {
+          const actor = await api<OperatorSession>('session', controller.signal)
+          if (!controller.signal.aborted) setSession(actor)
+        }
         if (tab === 'overview' || !overview) {
           const data = await api<Overview>('overview', controller.signal)
           if (!controller.signal.aborted) setOverview(data)
@@ -172,7 +179,7 @@ export default function App() {
   }, [token, tab, refresh, api])
 
   const endSession = () => {
-    setToken(''); setOverview(null); setDiagnostics(null); setVerification(null); setCollections({}); setError(''); setTab('overview'); setQuery('')
+    setToken(''); setOverview(null); setSession(null); setDiagnostics(null); setVerification(null); setCollections({}); setError(''); setTab('overview'); setQuery('')
   }
   const filtered = useMemo(() => {
     if (tab !== 'users' && tab !== 'groups' && tab !== 'devices') return []
@@ -208,7 +215,7 @@ export default function App() {
         </div>
       </aside>
       <div className="main-container">
-        <header className="topbar"><div className="crumb"><span>OPERATIONS</span><ChevronRight size={14}/><strong>{SECTION_TITLES[tab]}</strong></div><div className="top-actions"><span className="session-pill"><span className="live-dot"/>{overview ? "API RESPONDING" : "TOKEN PROVIDED"}</span><button className="icon-button" onClick={() => setRefresh(v => v + 1)} title="Refresh live data" aria-label="Refresh live data"><RefreshCw size={18} className={loading ? 'spin' : ''}/></button><div className="operator-avatar"><Shield size={18}/></div></div></header>
+        <header className="topbar"><div className="crumb"><span>OPERATIONS</span><ChevronRight size={14}/><strong>{SECTION_TITLES[tab]}</strong></div><div className="top-actions"><span className="session-pill"><span className="live-dot"/>{session ? `AUTHENTICATED: ${session.role.toUpperCase()} / ${session.auth_mode.toUpperCase()}` : "TOKEN PROVIDED"}</span><button className="icon-button" onClick={() => setRefresh(v => v + 1)} title="Refresh live data" aria-label="Refresh live data"><RefreshCw size={18} className={loading ? 'spin' : ''}/></button><div className="operator-avatar"><Shield size={18}/></div></div></header>
         <main className="main-content">
           <div className="page-intro"><div><Kicker>DPN / DOMAIN OPERATIONS</Kicker><h1>{SECTION_TITLES[tab]}<span className="title-period">.</span></h1><p>Centralized identity visibility and Linux domain infrastructure intelligence.</p></div><div className="context-pill"><Wifi size={15}/>{mode}</div></div>
           {overview?.mode === 'demo' && <div className="simulation-notice"><CircleAlert size={17}/><span>SIMULATION MODE — The names, counts and system state on this screen are demonstration data, not a live domain.</span></div>}

@@ -32,8 +32,28 @@ class Settings:
     krb_principal: str = ""
     krb_keytab_file: str = ""
     enable_drs: bool = False
+    auth_mode: str = "legacy"
+    runtime_env: str = "lab"
+    oidc_issuer: str = ""
+    oidc_audience: str = ""
+    oidc_public_key_file: str = ""
+    oidc_mfa_amr: str = "mfa"
+    oidc_max_token_age_seconds: int = 900
 
     def __post_init__(self) -> None:
+        if self.auth_mode not in ("legacy", "oidc"):
+            raise ValueError("DPN_DS_AUTH_MODE must be legacy or oidc")
+        if self.runtime_env not in ("lab", "production"):
+            raise ValueError("DPN_DS_RUNTIME_ENV must be lab or production")
+        if self.runtime_env == "production" and self.auth_mode != "oidc":
+            raise ValueError("Production requires oidc authentication")
+        if self.auth_mode == "oidc":
+            if not self.oidc_issuer.startswith("https://") or not self.oidc_audience:
+                raise ValueError("OIDC issuer must be HTTPS and audience must be configured")
+            if not self.oidc_public_key_file.startswith("/"):
+                raise ValueError("OIDC public key path must be absolute")
+            if not self.oidc_mfa_amr or not 60 <= self.oidc_max_token_age_seconds <= 3600:
+                raise ValueError("OIDC MFA/maximum age settings are invalid")
         if self.mode not in ("demo", "samba"):
             raise ValueError("DPN_DS_MODE must be 'demo' or 'samba'")
         if not _valid_hostname(self.realm) or "." not in self.realm:
@@ -68,4 +88,13 @@ class Settings:
             krb_principal=os.getenv("DPN_DS_KRB_PRINCIPAL", ""),
             krb_keytab_file=os.getenv("DPN_DS_KRB_KEYTAB_FILE", ""),
             enable_drs=os.getenv("DPN_DS_ENABLE_DRS", "").lower() in ("1", "true", "yes"),
+            auth_mode=os.getenv("DPN_DS_AUTH_MODE", "legacy").lower(),
+            runtime_env=os.getenv("DPN_DS_RUNTIME_ENV", "lab").lower(),
+            oidc_issuer=os.getenv("DPN_DS_OIDC_ISSUER", ""),
+            oidc_audience=os.getenv("DPN_DS_OIDC_AUDIENCE", ""),
+            oidc_public_key_file=os.getenv("DPN_DS_OIDC_PUBLIC_KEY_FILE", ""),
+            oidc_mfa_amr=os.getenv("DPN_DS_OIDC_MFA_AMR", "mfa"),
+            oidc_max_token_age_seconds=int(
+                os.getenv("DPN_DS_OIDC_MAX_TOKEN_AGE_SECONDS", "900")
+            ),
         )
