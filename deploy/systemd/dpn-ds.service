@@ -1,0 +1,33 @@
+[Unit]
+Description=DPN Directory Services read-only management API (evaluation)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/dpn-ds/backend
+Environment=DPN_DS_API_TOKEN_FILE=%d/api_token
+EnvironmentFile=-/etc/dpn-ds/service.env
+LoadCredential=api_token:/etc/dpn-ds/api-token
+ExecStart=/opt/dpn-ds/backend/.venv/bin/uvicorn dpn_ds.app:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target
