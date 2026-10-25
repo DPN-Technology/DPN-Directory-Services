@@ -40,7 +40,9 @@ class AdvancedHealth:
         try:
             password = read_secret_file(s.ldap_password_file)
         except SecretConfigurationError:
-            return _result("ldaps_bind", title, "unknown", "LDAP secret file is unavailable or unsafe")
+            return _result(
+                "ldaps_bind", title, "unknown", "LDAP secret file is unavailable or unsafe"
+            )
         conn = None
         try:
             tls = ldap3.Tls(
@@ -183,7 +185,9 @@ class AdvancedHealth:
         if self.settings.mode == "demo":
             checks = [
                 _result("ldaps_bind", "Authenticated LDAPS bind", "simulated", "No bind executed"),
-                _result("krb_keytab", "Kerberos keytab authentication", "simulated", "No KDC contacted"),
+                _result(
+                    "krb_keytab", "Kerberos keytab authentication", "simulated", "No KDC contacted"
+                ),
                 _result("drs_inbound", "Inbound DRS replication", "simulated", "No DRS query run"),
             ]
         else:
