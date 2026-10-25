@@ -29,6 +29,7 @@ DPN DS is a new DPN Technology management console built around the existing, pro
 | Security groups | Read-only domain group inventory |
 | Computer objects | Read-only managed computer listing |
 | Controller signal | Local samba-ad-dc systemd service status (not a replication or Kerberos check) |
+| Domain readiness | Bounded DNS SRV, LDAP/Kerberos TCP, and local time-sync preflight (not authentication) |
 | API security | Bearer-token gate for every /api/v1 route; no mutation endpoints |
 | Backend adapters | Explicit Demo mode, or real Samba CLI list commands |
 | Console | Responsive React/TypeScript interface, DPN black/red visual system |
@@ -114,7 +115,7 @@ docs/
 
 **Phase 05 — DPN platform integration:** DPN OS, Operational Control, WatchTower and central identity integration, backed by stable APIs.
 
-[Read the full roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Developer guide](docs/DEVELOPMENT.md)
+[Diagnostics guide](docs/DIAGNOSTICS.md) · [Read the full roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Developer guide](docs/DEVELOPMENT.md)
 
 ## SECURITY AND OWNERSHIP
 
