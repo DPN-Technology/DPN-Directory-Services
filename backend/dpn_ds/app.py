@@ -2,33 +2,34 @@
 
 from __future__ import annotations
 
-import hmac
+import logging
+import sys
+import time
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from dpn_ds.advanced_health import AdvancedHealth
+from dpn_ds.audit import LOGGER, emit_audit_event
+from dpn_ds.identity import OperatorAuthenticator
 from dpn_ds.config import Settings
 from dpn_ds.diagnostics import DomainDiagnostics
 from dpn_ds.directory import DemoDirectory, Directory, DirectoryUnavailable, SambaDirectory
 
 
-def create_app(settings: Settings | None = None, directory: Directory | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    directory: Directory | None = None,
+    public_key: str | None = None,
+) -> FastAPI:
     cfg = settings if settings is not None else Settings.from_env()
     source: Directory = directory or (DemoDirectory() if cfg.mode == "demo" else SambaDirectory())
-
-    def authorize(request: Request) -> None:
-        if not cfg.api_token:
-            raise HTTPException(status_code=503, detail="API authentication is not configured")
-        header = request.headers.get("Authorization", "")
-        scheme, separator, value = header.partition(" ")
-        supplied = value if separator and scheme.lower() == "bearer" else ""
-        if not hmac.compare_digest(supplied.encode(), cfg.api_token.encode()):
-            raise HTTPException(
-                status_code=401,
-                detail="Unauthorized",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    authenticator = OperatorAuthenticator(cfg, public_key=public_key)
+    LOGGER.setLevel(logging.INFO)
+    if not LOGGER.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        LOGGER.addHandler(handler)
 
     application = FastAPI(
         title="DPN Directory Services API",
@@ -46,17 +47,36 @@ def create_app(settings: Settings | None = None, directory: Directory | None = N
             allow_headers=["Authorization"],
         )
 
+    @application.middleware("http")
+    async def security_event_stream(request: Request, call_next):
+        if not request.url.path.startswith("/api/v1/"):
+            return await call_next(request)
+        started = time.monotonic()
+        status = 500
+        try:
+            response = await call_next(request)
+            status = response.status_code
+            return response
+        finally:
+            duration = int((time.monotonic() - started) * 1000)
+            emit_audit_event(request, status, duration)
+
     @application.get("/healthz")
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
 
-    router = APIRouter(prefix="/api/v1", dependencies=[Depends(authorize)])
+    router = APIRouter(prefix="/api/v1", dependencies=[Depends(authenticator.verify)])
 
     def read_items(method: str) -> list[dict[str, str]]:
         try:
             return getattr(source, method)()
         except DirectoryUnavailable as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @router.get("/session")
+    def session(request: Request) -> dict[str, str]:
+        actor = request.state.operator
+        return {"role": actor.role, "auth_mode": actor.method}
 
     @router.get("/users")
     def users() -> dict:
