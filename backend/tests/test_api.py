@@ -20,7 +20,7 @@ def test_health_is_non_sensitive():
 
 def test_token_required_for_every_directory_route():
     c = client()
-    for route in ("overview", "users", "groups", "devices", "diagnostics"):
+    for route in ("overview", "users", "groups", "devices", "diagnostics", "advanced-health"):
         assert c.get(f"/api/v1/{route}").status_code == 401
         wrong = c.get(f"/api/v1/{route}", headers={"Authorization": "Bearer wrong"})
         assert wrong.status_code == 401
