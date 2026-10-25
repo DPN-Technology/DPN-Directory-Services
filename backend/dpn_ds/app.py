@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
