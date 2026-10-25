@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 
 type IconType = ComponentType<SVGProps<SVGSVGElement> & { size?: string | number; strokeWidth?: number }>
-type Tab = 'overview' | 'users' | 'groups' | 'devices' | 'diagnostics' | 'about'
+type Tab = 'overview' | 'users' | 'groups' | 'devices' | 'diagnostics' | 'verification' | 'about'
 type DataTab = 'users' | 'groups' | 'devices'
 type Item = { name: string; kind: string }
 type Overview = {
@@ -33,17 +33,27 @@ type DiagnosticsReport = {
   disclaimer: string
   checks: DiagnosticCheck[]
 }
+type AdvancedCheck = {
+  code: string; title: string; status: 'pass' | 'fail' | 'unknown' | 'not_configured' | 'simulated'
+  detail: string
+}
+type AdvancedReport = {
+  mode: 'demo' | 'samba'; checked_at: string
+  summary: 'simulated' | 'attention' | 'incomplete' | 'authenticated_checks_passed'
+  checks: AdvancedCheck[]; disclaimer: string
+}
 const MENU: { id: Tab; title: string; icon: IconType; section: string }[] = [
   { id: 'overview', title: 'Command overview', icon: Activity, section: 'OPERATIONS' },
   { id: 'users', title: 'Domain identities', icon: Users, section: 'OPERATIONS' },
   { id: 'groups', title: 'Security groups', icon: Layers3, section: 'OPERATIONS' },
   { id: 'devices', title: 'Managed devices', icon: Monitor, section: 'INFRASTRUCTURE' },
   { id: 'diagnostics', title: 'Domain diagnostics', icon: Network, section: 'INFRASTRUCTURE' },
+  { id: 'verification', title: 'Authenticated checks', icon: Fingerprint, section: 'INFRASTRUCTURE' },
   { id: 'about', title: 'System architecture', icon: Blocks, section: 'INFRASTRUCTURE' },
 ]
 const SECTION_TITLES: Record<Tab, string> = {
   overview: 'Command overview', users: 'Domain identities',
-  groups: 'Security groups', devices: 'Managed devices', diagnostics: 'Domain diagnostics', about: 'System architecture',
+  groups: 'Security groups', devices: 'Managed devices', diagnostics: 'Domain diagnostics', verification: 'Authenticated checks', about: 'System architecture',
 }
 const resourceIcons: Record<DataTab, IconType> = { users: Users, groups: Layers3, devices: Monitor }
 const pluralLabels: Record<DataTab, string> = { users: 'user accounts', groups: 'directory groups', devices: 'computer accounts' }
@@ -107,6 +117,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('overview')
   const [overview, setOverview] = useState<Overview | null>(null)
   const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null)
+  const [verification, setVerification] = useState<AdvancedReport | null>(null)
   const [collections, setCollections] = useState<Partial<Record<DataTab, Item[]>>>({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -136,6 +147,11 @@ export default function App() {
           const data = await api<Overview>('overview', controller.signal)
           if (!controller.signal.aborted) setOverview(data)
         }
+        if (tab === 'verification') {
+          setVerification(null)
+          const data = await api<AdvancedReport>('advanced-health', controller.signal)
+          if (!controller.signal.aborted) setVerification(data)
+        }
         if (tab === 'diagnostics') {
           setDiagnostics(null)
           const data = await api<DiagnosticsReport>('diagnostics', controller.signal)
@@ -156,7 +172,7 @@ export default function App() {
   }, [token, tab, refresh, api])
 
   const endSession = () => {
-    setToken(''); setOverview(null); setDiagnostics(null); setCollections({}); setError(''); setTab('overview'); setQuery('')
+    setToken(''); setOverview(null); setDiagnostics(null); setVerification(null); setCollections({}); setError(''); setTab('overview'); setQuery('')
   }
   const filtered = useMemo(() => {
     if (tab !== 'users' && tab !== 'groups' && tab !== 'devices') return []
@@ -233,6 +249,28 @@ export default function App() {
             </div> : <div className="empty-state"><Network size={30}/><strong>{loading ? 'Running configured preflight' : 'No diagnostic snapshot available'}</strong><span>{loading ? 'Querying domain service records and configured controller.' : 'Refresh to obtain a new diagnostic snapshot.'}</span></div>}
             <div className="diagnostic-disclaimer"><CircleAlert size={19}/><span>{diagnostics?.disclaimer ?? 'Checks are limited to discovery, reachability and local time synchronization. They do not prove successful domain authentication.'}</span></div>
             <div className="diagnostic-footer"><div><LockKeyhole size={15}/> FIXED TARGETS · SERVER CONFIGURATION ONLY</div><button className="diagnostic-refresh" onClick={() => setRefresh(v => v + 1)} disabled={loading}><RefreshCw size={15}/> RUN CHECKS AGAIN</button></div>
+          </section>}
+          {tab === 'verification' && <section className="panel diagnostics-panel">
+            <CardHeading icon={Fingerprint} eyebrow="OPT-IN CREDENTIAL & REPLICATION HEALTH" title="Authenticated protocol checks"
+              right={<span className={'status-badge ' + (verification?.summary === 'authenticated_checks_passed' ? 'good' : verification?.summary === 'attention' ? 'bad' : 'neutral')}>
+                <span/>{verification?.summary === 'authenticated_checks_passed' ? 'CHECKS PASSED' : verification?.summary === 'attention' ? 'ATTENTION' : verification?.summary === 'incomplete' ? 'INCOMPLETE' : verification?.summary === 'simulated' ? 'SIMULATED' : 'NOT CHECKED'}</span>}
+            />
+            <div className="diagnostics-intro">
+              <div><Kicker>IDENTITY & REPLICATION VALIDATION</Kicker>
+                <h2>PROVE THE CONNECTION.<br/>AUDIT THE RESULT.</h2>
+                <p>Read-only checks backed by a dedicated domain identity</p></div>
+              <div className="diagnostics-timestamp"><span>LAST SNAPSHOT</span><strong>{verification ? new Date(verification.checked_at).toLocaleString() : '—'}</strong><small>{verification?.mode === 'demo' ? 'SIMULATION ONLY' : 'OPT-IN / ON DEMAND'}</small></div>
+            </div>
+            {verification ? <div className="diagnostics-grid">
+              {verification.checks.map((check, index) => <article className="diagnostic-card" key={check.code}>
+                <div className="diagnostic-top"><span className="diagnostic-index">{String(index + 1).padStart(2, '0')} / 03</span>
+                  <span className={'diagnostic-status ' + check.status}><span className="status-indicator"/>{check.status.replace('_',' ').toUpperCase()}</span></div>
+                <h3>{check.title}</h3><span className="diagnostic-target">{check.code.toUpperCase()}</span>
+                <p>{check.detail}</p>
+              </article>)}
+            </div> : <div className="empty-state"><Fingerprint size={30}/><strong>{loading ? 'Evaluating configured probes' : 'No authenticated snapshot'}</strong><span>Checks run only when configured by the administrator.</span></div>}
+            <div className="diagnostic-disclaimer"><CircleAlert size={19}/><span>{verification?.disclaimer ?? 'No production-grade domain health guarantees are provided by these checks.'}</span></div>
+            <div className="diagnostic-footer"><div><LockKeyhole size={15}/> NO LDAP WRITES · NO BROWSER CREDENTIALS</div><button className="diagnostic-refresh" onClick={() => setRefresh(v => v + 1)} disabled={loading}><RefreshCw size={15}/> RUN CHECKS AGAIN</button></div>
           </section>}
           {(tab === 'users' || tab === 'groups' || tab === 'devices') && <section className="panel collection-panel"><CardHeading icon={resourceIcons[tab]} eyebrow="DIRECTORY INVENTORY / READ ONLY" title={pluralLabels[tab]} right={<span className="count-pill">{filtered.length} SHOWN</span>}/><div className="collection-tools"><div className="search-control"><Search size={17}/><input placeholder={'Search ' + pluralLabels[tab] + '...'} aria-label={'Search ' + pluralLabels[tab]} value={query} onChange={e => setQuery(e.target.value)} /></div><span className="inventory-message"><Eye size={15}/> OBSERVATION ONLY</span></div><div className="record-header"><span>DIRECTORY OBJECT</span><span>OBJECT TYPE</span></div>{filtered.length ? filtered.map((item, i) => { const I=resourceIcons[tab]; return <div className="record-row" key={item.name+i}><div className="record-identity"><div className="record-icon"><I size={18}/></div><div><strong>{item.name}</strong><small>{overview?.realm}</small></div></div><div className="record-kind">{item.kind.toUpperCase()}</div></div> }) : <div className="empty-state"><Database size={30}/><strong>{loading ? 'Loading directory records' : 'No records to display'}</strong><span>{loading ? 'Reading the directory adapter…' : 'Search or refresh to check for directory objects.'}</span></div>}<div className="table-footer"><span>{filtered.length} matching records</span><span>NO EDIT ACTIONS IN THIS RELEASE</span></div></section>}
           {tab === 'about' && <section className="panel about-panel"><CardHeading icon={Blocks} eyebrow="ENGINEERING REFERENCE" title="Directory services architecture"/><div className="architecture-flow"><div><div className="flow-icon"><Monitor size={24}/></div><strong>DPN CONSOLE</strong><span>React / TypeScript</span></div><ArrowRight/><div><div className="flow-icon"><ShieldCheck size={24}/></div><strong>CONTROL API</strong><span>FastAPI / Token gate</span></div><ArrowRight/><div><div className="flow-icon"><Terminal size={24}/></div><strong>SAMBA AD DC</strong><span>Read-only CLI adapter</span></div></div><div className="about-grid"><div><Kicker>AVAILABLE NOW</Kicker><h3>Initial foundation</h3><p>Domain overview, user inventory, group inventory, computer accounts and controller service status through a constrained API.</p></div><div><Kicker>PLANNED MILESTONES</Kicker><h3>Enterprise control plane</h3><p>Audited user changes, RBAC/MFA, Linux host policy orchestration, replication checks, authenticated Kerberos/LDAP checks and secure remote agents.</p></div></div><div className="architecture-footer"><HardDrive size={18}/> DPN DS relies on Samba for directory protocols and data. It does not replace AD DC, LDAP or Kerberos engines. <ArrowUpRight size={16}/></div></section>}
