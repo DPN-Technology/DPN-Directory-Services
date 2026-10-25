@@ -1,6 +1,5 @@
 """Unit probes are fully mocked: CI never contacts a real domain."""
 
-import socket
 from unittest.mock import patch
 
 import dns.resolver
@@ -56,7 +55,7 @@ def test_port_uses_only_configured_host_and_fixed_port():
 def test_tcp_timeout_is_sanitized():
     with patch(
         "dpn_ds.diagnostics.socket.create_connection",
-        side_effect=socket.timeout("secret information"),
+        side_effect=TimeoutError("secret information"),
     ):
         result = report()._port("tcp_ldap", "LDAP", 389)
     assert result["status"] == "fail"
